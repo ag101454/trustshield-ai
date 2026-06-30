@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrustShield AI</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <span class="logo-icon">🛡️</span>
+        <span class="logo-text">TrustShield AI</span>
+      </div>
+    </div>
+
+    <!-- Current Site Info -->
+    <div class="site-info" id="siteInfo">
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Analyzing website...</p>
+      </div>
+      
+      <div class="result hidden" id="result">
+        <div class="score-section">
+          <div class="score-circle" id="scoreCircle">
+            <span class="score-number" id="scoreNumber">--</span>
+            <span class="score-label">Trust Score</span>
+          </div>
+        </div>
+        
+        <div class="status" id="status"></div>
+        <div class="url-display" id="urlDisplay"></div>
+        
+        <div class="checks" id="checks"></div>
+        
+        <div class="actions">
+          <button class="btn-details" id="btnDetails">View Full Report</button>
+          <button class="btn-report" id="btnReport">🚩 Report This Site</button>
+        </div>
+      </div>
+
+      <div class="error hidden" id="error">
+        <p>Could not scan this page</p>
+        <button class="btn-retry" id="btnRetry">Try Again</button>
+      </div>
+    </div>
+
+    <!-- Quick Scan -->
+    <div class="quick-scan">
+      <input type="text" id="scanUrl" placeholder="Enter URL to scan..." />
+      <button id="btnScan">Scan</button>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <a href="https://trustshield-ai.vercel.app" target="_blank">Open Dashboard</a>
+      <span class="version">v1.0.0</span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

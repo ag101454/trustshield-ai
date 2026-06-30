@@ -1,23 +1,102 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Web Audio API for welcome sound
+function playWelcomeSound() {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Musical welcome notes (C-E-G-C arpeggio - happy sound)
+    const notes = [
+      { freq: 523, duration: 0.3, delay: 0 },     // C5
+      { freq: 659, duration: 0.3, delay: 0.2 },    // E5
+      { freq: 784, duration: 0.3, delay: 0.4 },    // G5
+      { freq: 1047, duration: 0.6, delay: 0.6 },   // C6 (held longer)
+    ];
+    
+    notes.forEach(({ freq, duration, delay }) => {
+      setTimeout(() => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+        
+        // Soft attack and release
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.15, audioContext.currentTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + duration);
+      }, delay * 1000);
+    });
+  } catch (e) {
+    console.log('Audio not supported');
+  }
+}
+
+// Speak "Welcome to TrustShield AI"
+function speakWelcome() {
+  try {
+    if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance('Welcome to TrustShield AI');
+      utterance.rate = 0.9;     // Slightly slower
+      utterance.pitch = 1.1;    // Slightly higher pitch
+      utterance.volume = 0.8;
+      
+      // Try to use a good voice
+      const voices = window.speechSynthesis.getVoices();
+      const englishVoice = voices.find(v => 
+        v.lang.startsWith('en') && v.name.includes('Female')
+      ) || voices.find(v => v.lang.startsWith('en'));
+      
+      if (englishVoice) {
+        utterance.voice = englishVoice;
+      }
+      
+      // Speak after a short delay
+      setTimeout(() => {
+        window.speechSynthesis.speak(utterance);
+      }, 500);
+    }
+  } catch (e) {
+    console.log('Speech not supported');
+  }
+}
 
 export default function IntroAnimation({ onComplete }) {
   const [clicked, setClicked] = useState(false);
   const [exiting, setExiting] = useState(false);
 
+  // Load voices
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+    }
+  }, []);
+
   const handleClick = () => {
     if (clicked) return;
     setClicked(true);
     
-    // Wait for unlock animation, then exit
+    // Play welcome sound and speak
+    playWelcomeSound();
+    speakWelcome();
+    
     setTimeout(() => {
       setExiting(true);
-    }, 2000);
+    }, 2500);
     
-    // Complete after exit animation
     setTimeout(() => {
       onComplete();
-    }, 2800);
+    }, 3300);
   };
 
   return (
