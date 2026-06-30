@@ -27,7 +27,6 @@ import {
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// Your Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAP_Rh9Fxy8Qbchqy4AjapSljNq8yGhxow",
   authDomain: "trustshield-ai-5583c.firebaseapp.com",
@@ -38,7 +37,6 @@ const firebaseConfig = {
   measurementId: "G-JG7L4MTG0J"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -46,7 +44,6 @@ const storage = getStorage(app);
 
 console.log('✅ Firebase initialized');
 
-// Providers
 const googleProvider = new GoogleAuthProvider();
 const githubProvider = new GithubAuthProvider();
 
@@ -54,28 +51,25 @@ googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
 
-// ============================================
-// AUTH FUNCTIONS
-// ============================================
+// Check if device is mobile
+const isMobileDevice = () => {
+  return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
 
-// Google Login - Mobile friendly
+// Google Login - Mobile uses redirect, Desktop uses popup
 export const loginWithGoogle = async () => {
-  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  
-  if (isMobile) {
-    // Use redirect for mobile (no popup blocking)
+  if (isMobileDevice()) {
     await signInWithRedirect(auth, googleProvider);
-    return null; // Will redirect, result handled on return
+    return null;
   } else {
-    // Use popup for desktop
     const result = await signInWithPopup(auth, googleProvider);
     await createUserProfile(result.user);
     return result.user;
   }
 };
 
-// Handle Google redirect result (for mobile)
-export const getGoogleRedirectResult = async () => {
+// Handle redirect result when user returns from Google login
+export const handleGoogleRedirect = async () => {
   try {
     const result = await getRedirectResult(auth);
     if (result) {
@@ -84,49 +78,37 @@ export const getGoogleRedirectResult = async () => {
     }
     return null;
   } catch (error) {
-    console.error('Redirect result error:', error);
+    console.error('Redirect error:', error);
     return null;
   }
 };
 
-// Github Login
 export const loginWithGithub = async () => {
   const result = await signInWithPopup(auth, githubProvider);
   await createUserProfile(result.user);
   return result.user;
 };
 
-// Email Signup
 export const signupWithEmail = async (email, password) => {
   const result = await createUserWithEmailAndPassword(auth, email, password);
   await createUserProfile(result.user);
   return result.user;
 };
 
-// Email Login
 export const loginWithEmail = async (email, password) => {
   const result = await signInWithEmailAndPassword(auth, email, password);
   return result.user;
 };
 
-// Logout
 export const logoutUser = async () => {
   await signOut(auth);
-  console.log('Logged out');
 };
 
-// ============================================
-// FIRESTORE FUNCTIONS
-// ============================================
-
-// Create user profile in Firestore
 export const createUserProfile = async (user) => {
   if (!user) return;
-  
   try {
     const userRef = doc(db, 'users', user.uid);
     const userSnap = await getDoc(userRef);
-    
     if (!userSnap.exists()) {
       await setDoc(userRef, {
         uid: user.uid,
@@ -137,14 +119,12 @@ export const createUserProfile = async (user) => {
         plan: 'free',
         scanCount: 0
       });
-      console.log('✅ New user profile created');
     }
   } catch (error) {
-    console.error('Error creating user profile:', error);
+    console.error('Error creating profile:', error);
   }
 };
 
-// Save scan to Firestore
 export const saveScan = async (userId, scanData) => {
   try {
     const docRef = await addDoc(collection(db, 'scans'), {
@@ -152,35 +132,20 @@ export const saveScan = async (userId, scanData) => {
       ...scanData,
       timestamp: serverTimestamp()
     });
-    console.log('✅ Scan saved:', docRef.id);
     return docRef.id;
-  } catch (error) {
-    console.error('Error saving scan:', error);
-    return null;
-  }
+  } catch { return null; }
 };
 
-// Get user scans from Firestore
 export const getUserScans = async (userId) => {
   try {
-    const q = query(
-      collection(db, 'scans'),
-      where('userId', '==', userId),
-      orderBy('timestamp', 'desc')
-    );
+    const q = query(collection(db, 'scans'), where('userId', '==', userId));
     const snapshot = await getDocs(q);
-    const scans = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const scans = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    scans.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
     return scans;
-  } catch (error) {
-    console.error('Error getting scans:', error);
-    return [];
-  }
+  } catch { return []; }
 };
 
-// Save community report
 export const saveReport = async (userId, reportData) => {
   try {
     const docRef = await addDoc(collection(db, 'communityReports'), {
@@ -190,31 +155,16 @@ export const saveReport = async (userId, reportData) => {
       createdAt: serverTimestamp()
     });
     return docRef.id;
-  } catch (error) {
-    console.error('Error saving report:', error);
-    return null;
-  }
+  } catch { return null; }
 };
 
-// Get community reports
 export const getCommunityReports = async () => {
   try {
-    const q = query(
-      collection(db, 'communityReports'),
-      orderBy('createdAt', 'desc'),
-      limit(20)
-    );
+    const q = query(collection(db, 'communityReports'), orderBy('createdAt', 'desc'), limit(20));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-  } catch (error) {
-    console.error('Error getting reports:', error);
-    return [];
-  }
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch { return []; }
 };
 
-// Export services
 export { auth, db, storage, onAuthStateChanged, googleProvider, githubProvider };
 export default app;
