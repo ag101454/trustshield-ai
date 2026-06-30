@@ -4,6 +4,8 @@ import {
   GoogleAuthProvider, 
   GithubAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
@@ -48,63 +50,74 @@ console.log('✅ Firebase initialized');
 const googleProvider = new GoogleAuthProvider();
 const githubProvider = new GithubAuthProvider();
 
-// Add scopes if needed
-googleProvider.addScope('profile');
-googleProvider.addScope('email');
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
-// Auth functions
+// ============================================
+// AUTH FUNCTIONS
+// ============================================
+
+// Google Login - Mobile friendly
 export const loginWithGoogle = async () => {
-  try {
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  if (isMobile) {
+    // Use redirect for mobile (no popup blocking)
+    await signInWithRedirect(auth, googleProvider);
+    return null; // Will redirect, result handled on return
+  } else {
+    // Use popup for desktop
     const result = await signInWithPopup(auth, googleProvider);
     await createUserProfile(result.user);
     return result.user;
-  } catch (error) {
-    console.error('Google login error:', error);
-    throw error;
   }
 };
 
+// Handle Google redirect result (for mobile)
+export const getGoogleRedirectResult = async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      await createUserProfile(result.user);
+      return result.user;
+    }
+    return null;
+  } catch (error) {
+    console.error('Redirect result error:', error);
+    return null;
+  }
+};
+
+// Github Login
 export const loginWithGithub = async () => {
-  try {
-    const result = await signInWithPopup(auth, githubProvider);
-    await createUserProfile(result.user);
-    return result.user;
-  } catch (error) {
-    console.error('Github login error:', error);
-    throw error;
-  }
+  const result = await signInWithPopup(auth, githubProvider);
+  await createUserProfile(result.user);
+  return result.user;
 };
 
+// Email Signup
 export const signupWithEmail = async (email, password) => {
-  try {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    await createUserProfile(result.user);
-    return result.user;
-  } catch (error) {
-    console.error('Signup error:', error);
-    throw error;
-  }
+  const result = await createUserWithEmailAndPassword(auth, email, password);
+  await createUserProfile(result.user);
+  return result.user;
 };
 
+// Email Login
 export const loginWithEmail = async (email, password) => {
-  try {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    return result.user;
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
+  const result = await signInWithEmailAndPassword(auth, email, password);
+  return result.user;
 };
 
+// Logout
 export const logoutUser = async () => {
-  try {
-    await signOut(auth);
-    console.log('Logged out successfully');
-  } catch (error) {
-    console.error('Logout error:', error);
-    throw error;
-  }
+  await signOut(auth);
+  console.log('Logged out');
 };
+
+// ============================================
+// FIRESTORE FUNCTIONS
+// ============================================
 
 // Create user profile in Firestore
 export const createUserProfile = async (user) => {
@@ -149,30 +162,23 @@ export const saveScan = async (userId, scanData) => {
 
 // Get user scans from Firestore
 export const getUserScans = async (userId) => {
-    try {
-      const q = query(
-        collection(db, 'scans'),
-        where('userId', '==', userId)
-      );
-      const snapshot = await getDocs(q);
-      const scans = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      // Sort by timestamp manually (newest first)
-      scans.sort((a, b) => {
-        const timeA = a.timestamp?.seconds || 0;
-        const timeB = b.timestamp?.seconds || 0;
-        return timeB - timeA;
-      });
-      
-      return scans;
-    } catch (error) {
-      console.error('Error getting scans:', error);
-      return [];
-    }
-  };
+  try {
+    const q = query(
+      collection(db, 'scans'),
+      where('userId', '==', userId),
+      orderBy('timestamp', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    const scans = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    return scans;
+  } catch (error) {
+    console.error('Error getting scans:', error);
+    return [];
+  }
+};
 
 // Save community report
 export const saveReport = async (userId, reportData) => {
@@ -209,6 +215,6 @@ export const getCommunityReports = async () => {
   }
 };
 
-// Export auth and services
-export { auth, db, storage, onAuthStateChanged };
+// Export services
+export { auth, db, storage, onAuthStateChanged, googleProvider, githubProvider };
 export default app;

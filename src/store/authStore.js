@@ -5,13 +5,32 @@ import toast from 'react-hot-toast';
 
 export const useAuthStore = create((set, get) => ({
   user: null,
-  loading: false,  // Start as false
+  loading: true,
   error: null,
 
   // Initialize auth listener
   initAuth: () => {
     set({ loading: true });
     
+    // Check for Google redirect result (mobile login)
+    import('../lib/firebase').then(({ getGoogleRedirectResult }) => {
+      getGoogleRedirectResult().then(user => {
+        if (user) {
+          set({ 
+            user: {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName || user.email?.split('@')[0],
+              photoURL: user.photoURL
+            }, 
+            loading: false 
+          });
+          toast.success('Welcome to TrustShield AI! 🛡️');
+        }
+      }).catch(() => {});
+    });
+    
+    // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, 
       (user) => {
         if (user) {
@@ -38,54 +57,57 @@ export const useAuthStore = create((set, get) => ({
     return unsubscribe;
   },
 
-  // Google Login
+  // Set user manually
+  setUser: (userData) => set({ user: userData, loading: false }),
+
+  // Google Login - Works on desktop & mobile
   loginWithGoogle: async () => {
     set({ loading: true, error: null });
-    
     try {
       const { loginWithGoogle } = await import('../lib/firebase');
       const user = await loginWithGoogle();
       
-      set({ 
-        user: {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName || user.email?.split('@')[0],
-          photoURL: user.photoURL
-        }, 
-        loading: false 
-      });
-      toast.success('Welcome to TrustShield AI! 🛡️');
+      // If user is null, it's mobile redirect (page will reload)
+      if (user) {
+        set({ 
+          user: {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || user.email?.split('@')[0],
+            photoURL: user.photoURL
+          }, 
+          loading: false 
+        });
+        toast.success('Welcome to TrustShield AI! 🛡️');
+      }
+      // Mobile: page redirects, no need to update state
     } catch (error) {
       console.error('Google login error:', error.message);
       
-      // Handle popup closed by user
-      if (error.code === 'auth/popup-closed-by-user') {
+      // Popup closed by user - not an error
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
         set({ loading: false, error: null });
-        toast.error('Login cancelled. Please try again.');
         return;
       }
       
-      // Handle popup blocked
-      if (error.code === 'auth/popup-blocked') {
+      // Domain not authorized
+      if (error.code === 'auth/unauthorized-domain') {
         set({ loading: false, error: null });
-        toast.error('Popup blocked. Please allow popups for this site.');
+        toast.error('Domain not authorized. Please contact support.');
         return;
       }
       
       set({ error: error.message, loading: false });
-      toast.error('Login failed. Please try again.');
+      toast.error('Login failed. Try email login instead.');
     }
   },
 
   // Github Login
   loginWithGithub: async () => {
     set({ loading: true, error: null });
-    
     try {
       const { loginWithGithub } = await import('../lib/firebase');
       const user = await loginWithGithub();
-      
       set({ 
         user: {
           uid: user.uid,
@@ -101,13 +123,6 @@ export const useAuthStore = create((set, get) => ({
       
       if (error.code === 'auth/popup-closed-by-user') {
         set({ loading: false, error: null });
-        toast.error('Login cancelled. Please try again.');
-        return;
-      }
-      
-      if (error.code === 'auth/popup-blocked') {
-        set({ loading: false, error: null });
-        toast.error('Popup blocked. Please allow popups for this site.');
         return;
       }
       
@@ -119,11 +134,9 @@ export const useAuthStore = create((set, get) => ({
   // Email Signup
   signupWithEmail: async (email, password) => {
     set({ loading: true, error: null });
-    
     try {
       const { signupWithEmail } = await import('../lib/firebase');
       const user = await signupWithEmail(email, password);
-      
       set({ 
         user: {
           uid: user.uid,
@@ -137,13 +150,11 @@ export const useAuthStore = create((set, get) => ({
     } catch (error) {
       console.error('Signup error:', error.message);
       
-      // Handle weak password
       if (error.code === 'auth/weak-password') {
         set({ error: 'Password should be at least 6 characters', loading: false });
         return;
       }
       
-      // Handle email already in use
       if (error.code === 'auth/email-already-in-use') {
         set({ error: 'Email already registered. Try signing in.', loading: false });
         return;
@@ -156,11 +167,9 @@ export const useAuthStore = create((set, get) => ({
   // Email Login
   loginWithEmail: async (email, password) => {
     set({ loading: true, error: null });
-    
     try {
       const { loginWithEmail } = await import('../lib/firebase');
       const user = await loginWithEmail(email, password);
-      
       set({ 
         user: {
           uid: user.uid,
@@ -174,21 +183,18 @@ export const useAuthStore = create((set, get) => ({
     } catch (error) {
       console.error('Login error:', error.message);
       
-      // Handle wrong password
       if (error.code === 'auth/wrong-password') {
         set({ error: 'Incorrect password. Please try again.', loading: false });
         return;
       }
       
-      // Handle user not found
       if (error.code === 'auth/user-not-found') {
-        set({ error: 'No account found with this email. Sign up first.', loading: false });
+        set({ error: 'No account found. Sign up first.', loading: false });
         return;
       }
       
-      // Handle invalid email
       if (error.code === 'auth/invalid-email') {
-        set({ error: 'Please enter a valid email address.', loading: false });
+        set({ error: 'Please enter a valid email.', loading: false });
         return;
       }
       
