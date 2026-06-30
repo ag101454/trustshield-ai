@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Sitemap: https://trustshield.ai/sitemap.xml
+
+Disallow: /dashboard
+Disallow: /api/

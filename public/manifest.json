@@ -1,0 +1,22 @@
+{
+    "name": "TrustShield AI - Scam Detection",
+    "short_name": "TrustShield",
+    "description": "AI-powered scam detection platform. Check websites, emails, and messages for threats.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#060606",
+    "theme_color": "#10b981",
+    "orientation": "portrait-primary",
+    "icons": [
+      {
+        "src": "/icon-192.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "/icon-512.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ]
+  }
